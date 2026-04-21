@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Jameel Noori Nastaleeq';
+  src: url('https://cdn.jsdelivr.net/gh/nafeesppk/font-jameel-noori-nastaleeq@master/JameelNooriNastaleeq.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --background: #F7F5EF;
+  --foreground: #0C5B46;
+  --primary: #0C5B46;
+  --primary-dark: #084031;
+  --accent: #D4A84F;
+  --sage: #9FB3A8;
+  --card: #FFFFFF;
+  --border: #EAE6DD;
+}
+
+/* stylelint-disable at-rule-no-unknown */
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-accent: var(--accent);
+  --color-sage: var(--sage);
+  --color-border: var(--border);
+  --color-card: var(--card);
+  
+  --font-sans: var(--font-inter), "system-ui", "-apple-system", "sans-serif";
+  --font-serif: var(--font-playfair), "serif";
+  --font-urdu: "Jameel Noori Nastaleeq", var(--font-urdu), "Noto Nastaliq Urdu", "serif";
+  --font-urdu-display: var(--font-gulzar), "Gulzar", "Jameel Noori Nastaleeq", "serif";
+  
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
+  --radius-4xl: 3rem;
+  --radius-5xl: 4rem;
+  
+  --shadow-premium: 0 10px 30px -10px rgba(12, 91, 70, 0.1);
+  --shadow-soft: 0 15px 40px -15px rgba(12, 91, 70, 0.05);
+  --shadow-pill: 0 4px 10px rgba(12, 91, 70, 0.1);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6, .font-serif {
+  font-family: var(--font-serif);
+}
+
+/* Urdu Typography System */
+[dir="rtl"] {
+  font-family: var(--font-urdu) !important;
+  font-size: 1.15rem; /* Nastaliq needs to be larger to be readable */
+  line-height: 2 !important;
+}
+
+.font-urdu, [dir="rtl"] body, [dir="rtl"] * {
+  font-family: var(--font-urdu) !important;
+}
+
+[dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] h4, [dir="rtl"] h5, [dir="rtl"] h6, 
+[dir="rtl"] .font-serif, .font-urdu-display {
+  font-family: var(--font-urdu-display) !important;
+  line-height: 1.6 !important;
+  font-size: 1.2em; /* Heading size adjustment for Urdu */
+}
+
+[dir="rtl"] p, [dir="rtl"] span, [dir="rtl"] div, [dir="rtl"] li, [dir="rtl"] a, 
+[dir="rtl"] button, [dir="rtl"] input, [dir="rtl"] select, [dir="rtl"] textarea {
+  line-height: 2.2 !important;
+}
+
+/* Specifically target classes that might override fonts */
+[dir="rtl"] .font-sans, [dir="rtl"] .font-serif {
+  font-family: var(--font-urdu) !important;
+}
+
+.urdu-text {
+  font-family: var(--font-urdu);
+  line-height: 2.4;
+}
+
