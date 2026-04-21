@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { ADMIN_SIDEBAR_ITEMS } from "@/lib/constants";
 import { 
@@ -24,23 +24,123 @@ import {
   Edit3,
   Trash2,
   Globe,
-  Zap
+  Zap,
+  X
 } from "lucide-react";
 
 export default function NoticeBoardPage() {
-  const noticeStats = [
-    { label: "TOTAL NOTICES", value: "64", count: "Yearly", up: true, icon: FileText, color: "bg-white", text: "text-primary" },
-    { label: "ACTIVE NOTICES", value: "12", count: "Published", up: true, icon: Megaphone, color: "bg-primary text-white", text: "text-white" },
-    { label: "DRAFT NOTICES", value: "08", count: "In Review", up: false, icon: Clock, color: "bg-white", text: "text-primary" },
-    { label: "URGENT NOTICES", value: "03", count: "Priority", up: true, icon: Zap, color: "bg-accent text-primary", text: "text-primary" },
-  ];
+  const [notices, setNotices] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newNotice, setNewNotice] = useState({ title: "", category: "Academic", audience: "All Students", status: "Published" });
+  const [modalLoading, setModalLoading] = useState(false);
 
-  const notices = [
-    { id: 1, title: "Ramadan Academic Schedule Update", category: "Academic", date: "Mar 25, 2024", audience: "All Students", status: "Published" },
-    { id: 2, title: "Annual Sports Meet 2024 Postponed", category: "Events", date: "Mar 22, 2024", audience: "Students & Parents", status: "Draft" },
-    { id: 3, title: "Mid-Term Results Declaration", category: "Results", date: "Mar 20, 2024", audience: "Parents", status: "Published" },
-    { id: 4, title: "Urgent Meeting: All Faculty Members", category: "Staff", date: "Mar 18, 2024", audience: "Teachers", status: "Urgent" },
-    { id: 5, title: "New Enrollment Policy Guidelines", category: "Policy", date: "Mar 15, 2024", audience: "Public", status: "Expired" },
+  const fetchNotices = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/notices", {
+         headers: {
+           "Authorization": `Bearer ${token}`
+         }
+      });
+      const data = await res.json();
+      if (res.ok) {
+         setNotices(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch notices", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotices();
+  }, []);
+
+  const handleAddNotice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setModalLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/notices", {
+         method: "POST",
+         headers: {
+           "Content-Type": "application/json",
+           "Authorization": `Bearer ${token}`
+         },
+         body: JSON.stringify(newNotice)
+      });
+      const data = await res.json();
+      if (res.ok) {
+         setNotices([data, ...notices]);
+         setShowAddModal(false);
+         setNewNotice({ title: "", category: "Academic", audience: "All Students", status: "Published" });
+      } else {
+         alert(data.message || "Failed to add notice");
+      }
+    } catch (err) {
+      alert("Network error");
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async (id: string, newStatus: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/notices/${id}`, {
+         method: "PUT",
+         headers: {
+           "Content-Type": "application/json",
+           "Authorization": `Bearer ${token}`
+         },
+         body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) {
+         setNotices(prev => prev.map(n => n._id === id ? { ...n, status: newStatus } : n));
+      } else {
+         alert("Failed to update status.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error.");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if(!confirm("Are you sure you want to permanently delete this notice?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/notices/${id}`, {
+         method: "DELETE",
+         headers: {
+           "Authorization": `Bearer ${token}`
+         }
+      });
+      if (res.ok) {
+         setNotices(prev => prev.filter(n => n._id !== id));
+      } else {
+         alert("Failed to delete notice.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error.");
+    }
+  };
+
+  const totalNotices = notices.length;
+  const publishedNotices = notices.filter(n => n.status === "Published").length;
+  const draftNotices = notices.filter(n => n.status === "Draft").length;
+  const urgentNotices = notices.filter(n => n.status === "Urgent").length;
+
+  const noticeStats = [
+    { label: "TOTAL NOTICES", value: totalNotices.toString(), count: "Yearly", up: true, icon: FileText, color: "bg-white", text: "text-primary" },
+    { label: "ACTIVE NOTICES", value: publishedNotices.toString(), count: "Published", up: true, icon: Megaphone, color: "bg-primary text-white", text: "text-white" },
+    { label: "DRAFT NOTICES", value: draftNotices.toString(), count: "In Review", up: false, icon: Clock, color: "bg-white", text: "text-primary" },
+    { label: "URGENT NOTICES", value: urgentNotices.toString(), count: "Priority", up: true, icon: Zap, color: "bg-accent text-primary", text: "text-primary" },
   ];
 
   return (
@@ -49,8 +149,64 @@ export default function NoticeBoardPage() {
       sidebarItems={ADMIN_SIDEBAR_ITEMS}
       userProfile={{ name: "Admin Office", roleName: "Head Admin", avatar: "" }}
     >
-      <div className="space-y-12 animate-in fade-in duration-700">
+      <div className="space-y-12 animate-in fade-in duration-700 relative">
         
+        {/* ADD NOTICE MODAL */}
+        {showAddModal && (
+          <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-primary/20 backdrop-blur-sm">
+             <div className="bg-white rounded-4xl shadow-premium w-full max-w-lg p-10 relative overflow-hidden">
+                <button onClick={() => setShowAddModal(false)} className="absolute top-6 right-6 p-2 bg-background rounded-full hover:bg-black/5 transition-colors">
+                  <X className="w-5 h-5 text-primary" />
+                </button>
+                <div className="mb-8">
+                  <h3 className="text-3xl font-serif font-bold text-primary">Create Notice</h3>
+                  <p className="text-sage text-sm font-bold uppercase tracking-widest mt-2">Broadcast an Announcement</p>
+                </div>
+                <form onSubmit={handleAddNotice} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Notice Headline</label>
+                    <input type="text" required value={newNotice.title} onChange={e => setNewNotice({...newNotice, title: e.target.value})} className="w-full h-14 px-6 bg-background rounded-2xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors" placeholder="e.g. Campus Holiday..." />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Category</label>
+                       <select value={newNotice.category} onChange={e => setNewNotice({...newNotice, category: e.target.value})} className="w-full h-14 px-6 bg-background rounded-2xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors cursor-pointer appearance-none">
+                          <option value="Academic">Academic</option>
+                          <option value="Events">Events</option>
+                          <option value="Policy">Policy</option>
+                          <option value="Staff">Staff</option>
+                          <option value="General">General</option>
+                       </select>
+                     </div>
+                     <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Audience</label>
+                       <select value={newNotice.audience} onChange={e => setNewNotice({...newNotice, audience: e.target.value})} className="w-full h-14 px-6 bg-background rounded-2xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors cursor-pointer appearance-none">
+                          <option value="All Students">All Students</option>
+                          <option value="Parents">Parents</option>
+                          <option value="Teachers">Teachers</option>
+                          <option value="Public">Public</option>
+                       </select>
+                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Publishing Status</label>
+                    <select value={newNotice.status} onChange={e => setNewNotice({...newNotice, status: e.target.value})} className="w-full h-14 px-6 bg-background rounded-2xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors cursor-pointer appearance-none">
+                        <option value="Published">Published Now</option>
+                        <option value="Draft">Save as Draft</option>
+                        <option value="Urgent">Urgent Priority</option>
+                    </select>
+                  </div>
+
+                  <button type="submit" disabled={modalLoading} className="w-full h-14 bg-primary text-white rounded-2xl font-bold shadow-soft hover:shadow-premium transition-all mt-4">
+                    {modalLoading ? "Processing..." : "Create Notice"}
+                  </button>
+                </form>
+             </div>
+          </div>
+        )}
+
         {/* Header Summary */}
         <div className="flex flex-col lg:flex-row justify-between items-end gap-10">
            <div className="space-y-4">
@@ -60,7 +216,7 @@ export default function NoticeBoardPage() {
            </div>
            
            <div className="flex gap-5 pb-2">
-              <button className="flex items-center gap-3 bg-white border border-border/50 text-primary px-10 py-5 rounded-full font-bold shadow-soft hover:shadow-premium transition-all active:scale-95 group">
+              <button onClick={() => setShowAddModal(true)} className="flex items-center gap-3 bg-white border border-border/50 text-primary px-10 py-5 rounded-full font-bold shadow-soft hover:shadow-premium transition-all active:scale-95 group">
                  <Edit3 className="w-5 h-5 text-sage" />
                  <span className="text-[11px] font-black uppercase tracking-widest leading-none">Create Notice</span>
               </button>
@@ -145,8 +301,12 @@ export default function NoticeBoardPage() {
                     </tr>
                  </thead>
                  <tbody className="divide-y divide-background">
-                    {notices.map((notice) => (
-                      <tr key={notice.id} className="group hover:bg-background/20 transition-all duration-300">
+                    {loading ? (
+                      <tr><td colSpan={6} className="text-center py-10 opacity-50 font-bold">Loading notices...</td></tr>
+                    ) : notices.length === 0 ? (
+                      <tr><td colSpan={6} className="text-center py-10 opacity-50 font-bold">No announcements published yet.</td></tr>
+                    ) : notices.map((notice) => (
+                      <tr key={notice._id} className="group hover:bg-background/20 transition-all duration-300">
                         <td className="py-10 px-8">
                            <div className="flex items-center gap-6">
                               <div className="w-14 h-14 bg-primary/5 rounded-2xl flex items-center justify-center font-serif font-bold text-primary text-xl border border-primary/10 shadow-sm relative shrink-0">
@@ -159,12 +319,13 @@ export default function NoticeBoardPage() {
                         <td className="py-10 px-8">
                            <span className="text-[10px] font-black uppercase tracking-widest px-5 py-2.5 bg-accent/20 text-primary border border-accent/20 rounded-full shadow-soft">{notice.category}</span>
                         </td>
-                        <td className="py-10 px-8 text-sm font-medium text-sage italic">{notice.date}</td>
+                        <td className="py-10 px-8 text-sm font-medium text-sage italic">{new Date(notice.createdAt).toLocaleDateString()}</td>
                         <td className="py-10 px-8 text-xs font-black text-primary/60 uppercase tracking-widest">{notice.audience}</td>
                         <td className="py-10 px-8">
                            <span className={`inline-flex items-center gap-3 text-[9px] font-black uppercase tracking-widest px-5 py-2.5 rounded-full border shadow-soft ${
                              notice.status === "Published" ? "bg-green-50 text-green-600 border-green-100" :
                              notice.status === "Urgent" ? "bg-red-50 text-red-600 border-red-100 shadow-sm shadow-red-200" :
+                             notice.status === "Draft" ? "bg-blue-50 text-blue-600 border-blue-100" :
                              "bg-gray-100 text-gray-500 border-gray-200"
                            }`}>
                               {notice.status}
@@ -172,13 +333,17 @@ export default function NoticeBoardPage() {
                         </td>
                         <td className="py-10 px-8">
                            <div className="flex items-center justify-end gap-4 shadow-soft">
-                              <button className="w-12 h-12 flex items-center justify-center bg-white border border-border/40 rounded-2xl hover:bg-primary hover:text-white transition-all shadow-sm group/btn" title="Edit Announcement">
-                                 <Edit3 className="w-4 h-4" />
-                              </button>
-                              <button className="w-12 h-12 flex items-center justify-center bg-white border border-border/40 rounded-2xl hover:bg-green-600 hover:text-white transition-all shadow-sm group/btn" title="Quick Publish">
-                                 <Globe className="w-4 h-4" />
-                              </button>
-                              <button className="w-12 h-12 flex items-center justify-center bg-white border border-border/40 rounded-2xl hover:bg-red-600 hover:text-white transition-all shadow-sm group/btn" title="Permanent Delete">
+                              {notice.status === "Draft" ? (
+                                <button onClick={() => handleUpdateStatus(notice._id, "Published")} className="w-12 h-12 flex items-center justify-center bg-white border border-border/40 rounded-2xl hover:bg-green-600 hover:text-white transition-all shadow-sm group/btn" title="Quick Publish">
+                                   <Globe className="w-4 h-4" />
+                                </button>
+                              ) : (
+                                <button onClick={() => handleUpdateStatus(notice._id, "Expired")} className="w-12 h-12 flex items-center justify-center bg-white border border-border/40 rounded-2xl hover:bg-orange-500 hover:text-white transition-all shadow-sm group/btn" title="Mark Expired">
+                                   <XCircle className="w-4 h-4" />
+                                </button>
+                              )}
+                              
+                              <button onClick={() => handleDelete(notice._id)} className="w-12 h-12 flex items-center justify-center bg-white border border-border/40 rounded-2xl hover:bg-red-600 hover:text-white transition-all shadow-sm group/btn" title="Permanent Delete">
                                  <Trash2 className="w-4 h-4" />
                               </button>
                            </div>
@@ -206,5 +371,3 @@ export default function NoticeBoardPage() {
     </DashboardLayout>
   );
 }
-
-

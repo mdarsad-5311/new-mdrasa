@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { ADMIN_SIDEBAR_ITEMS } from "@/lib/constants";
 import { 
@@ -22,21 +22,59 @@ import {
 } from "lucide-react";
 
 export default function ManageStudentsPage() {
-  const [activeStatus, setActiveStatus] = useState("all");
+  const [students, setStudents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStudents = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/admission", {
+         headers: {
+           "Authorization": `Bearer ${token}`
+         }
+      });
+      const data = await res.json();
+      if (res.ok) {
+         // Filter only approved admissions to act as "Active Students"
+         setStudents(data.filter((app: any) => app.status === "approved"));
+      }
+    } catch (err) {
+      console.error("Failed to fetch students", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    if(!confirm("Are you sure you want to permanently delete this student record?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/admission/${id}`, {
+         method: "DELETE",
+         headers: {
+           "Authorization": `Bearer ${token}`
+         }
+      });
+      if (res.ok) {
+         setStudents(prev => prev.filter(std => std._id !== id));
+      } else {
+         alert("Failed to delete student.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error.");
+    }
+  };
 
   const studentStats = [
-    { label: "TOTAL STUDENTS", value: "842", count: "+12%", up: true, icon: Users, color: "bg-white" },
-    { label: "ACTIVE STUDENTS", value: "798", count: "+5%", up: true, icon: CheckCircle2, color: "bg-primary text-white" },
-    { label: "NEW THIS MONTH", value: "32", count: "+8", up: true, icon: UserPlus, color: "bg-white" },
-    { label: "GRADUATED", value: "124", count: "Total", up: false, icon: GraduationCap, color: "bg-accent text-primary" },
-  ];
-
-  const students = [
-    { id: 1, name: "Mustafa Ahmed", roll: "2024-001", class: "Hifz-A", guardian: "Mohammed Ahmed", phone: "+91 98765 43210", status: "Active" },
-    { id: 2, name: "Sara Noor", roll: "2024-042", class: "Class 03-B", guardian: "Umar Farooq", phone: "+91 98765 12345", status: "Active" },
-    { id: 3, name: "Ali Abbas", roll: "2024-085", class: "Hifz-B", guardian: "Abbas Ali", phone: "+91 99988 77766", status: "On Leave" },
-    { id: 4, name: "Hassan Raza", roll: "2024-112", class: "Nazra-A", guardian: "Khalid Raza", phone: "+91 88877 66655", status: "Inactive" },
-    { id: 5, name: "Zainab Bi", roll: "2024-156", class: "Class 05-C", guardian: "Mohd Ashraf", phone: "+91 77766 55544", status: "Active" },
+    { label: "TOTAL STUDENTS", value: students.length.toString(), count: "+12%", up: true, icon: Users, color: "bg-white" },
+    { label: "ACTIVE STUDENTS", value: students.length.toString(), count: "+5%", up: true, icon: CheckCircle2, color: "bg-primary text-white" },
+    { label: "NEW THIS MONTH", value: "0", count: "+0", up: true, icon: UserPlus, color: "bg-white" },
+    { label: "GRADUATED", value: "0", count: "Total", up: false, icon: GraduationCap, color: "bg-accent text-primary" },
   ];
 
   return (
@@ -96,7 +134,7 @@ export default function ManageStudentsPage() {
                  <Search className="w-5 h-5 text-sage/40" />
                  <input 
                    type="text" 
-                   placeholder="Search students by name or roll number..." 
+                   placeholder="Search students by name..." 
                    className="flex-1 bg-transparent border-none outline-none pl-4 text-sm font-medium text-primary placeholder:text-sage/40" 
                  />
               </div>
@@ -108,14 +146,6 @@ export default function ManageStudentsPage() {
                        <option>All Classes</option>
                        <option>Hifz Section</option>
                        <option>Class 1 - 5</option>
-                    </select>
-                 </div>
-                 <div className="flex items-center gap-3 px-6 py-4 bg-background border border-border/40 rounded-full h-16">
-                    <CheckCircle2 className="w-4 h-4 text-sage" />
-                    <select className="bg-transparent border-none outline-none text-[11px] font-black uppercase tracking-widest text-primary cursor-pointer pr-4">
-                       <option>Status: All</option>
-                       <option>Active Only</option>
-                       <option>On Leave</option>
                     </select>
                  </div>
               </div>
@@ -135,41 +165,37 @@ export default function ManageStudentsPage() {
                     </tr>
                  </thead>
                  <tbody className="divide-y divide-background">
-                    {students.map((std) => (
-                      <tr key={std.id} className="group hover:bg-background/20 transition-all duration-300">
+                    {loading ? (
+                      <tr><td colSpan={6} className="text-center py-8 font-bold opacity-50">Loading Students...</td></tr>
+                    ) : students.length === 0 ? (
+                      <tr><td colSpan={6} className="text-center py-8 font-bold opacity-50">No active students found. Approve admissions first.</td></tr>
+                    ) : students.map((std: any) => (
+                      <tr key={std._id} className="group hover:bg-background/20 transition-all duration-300">
                         <td className="py-8 px-6">
                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center font-serif font-bold text-primary text-lg border border-primary/10 shadow-sm">{std.name.charAt(0)}</div>
-                              <p className="text-base font-bold text-primary leading-none group-hover:text-accent transition-colors underline decoration-transparent group-hover:decoration-accent decoration-2 underline-offset-4">{std.name}</p>
+                              <div className="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center font-serif font-bold text-primary text-lg border border-primary/10 shadow-sm">{std.studentName.charAt(0)}</div>
+                              <p className="text-base font-bold text-primary leading-none group-hover:text-accent transition-colors underline decoration-transparent group-hover:decoration-accent decoration-2 underline-offset-4">{std.studentName}</p>
                            </div>
                         </td>
-                        <td className="py-8 px-6 text-sm font-black text-primary tracking-wider opacity-60 leading-none">{std.roll}</td>
+                        <td className="py-8 px-6 text-sm font-black text-primary tracking-wider opacity-60 leading-none">RL-{std._id.substring(std._id.length - 4).toUpperCase()}</td>
                         <td className="py-8 px-6">
-                           <span className="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-accent/10 text-primary border border-accent/20 rounded-full">{std.class}</span>
+                           <span className="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-accent/10 text-primary border border-accent/20 rounded-full">{std.courseAppliedFor}</span>
                         </td>
                         <td className="py-8 px-6">
-                           <p className="text-sm font-bold text-primary leading-none mb-2">{std.guardian}</p>
+                           <p className="text-sm font-bold text-primary leading-none mb-2">{std.parentName}</p>
                            <p className="text-[10px] font-black text-sage tracking-widest opacity-60">{std.phone}</p>
                         </td>
                         <td className="py-8 px-6">
-                           <span className={`inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full border ${
-                             std.status === "Active" ? "bg-green-50 text-green-600 border-green-100" :
-                             std.status === "On Leave" ? "bg-orange-50 text-orange-600 border-orange-100" :
-                             "bg-red-50 text-red-600 border-red-100"
-                           }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${
-                                std.status === "Active" ? "bg-green-600" :
-                                std.status === "On Leave" ? "bg-orange-600" :
-                                "bg-red-600"
-                              }`}></span>
-                              {std.status}
+                           <span className={`inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full border bg-green-50 text-green-600 border-green-100`}>
+                              <span className={`w-1.5 h-1.5 rounded-full bg-green-600`}></span>
+                              Active
                            </span>
                         </td>
                         <td className="py-8 px-6">
                            <div className="flex items-center justify-end gap-3 opacity-20 group-hover:opacity-100 transition-opacity">
                               <button className="w-10 h-10 flex items-center justify-center bg-white border border-border/40 rounded-xl hover:bg-primary hover:text-white transition-all shadow-sm"><Eye className="w-4 h-4" /></button>
                               <button className="w-10 h-10 flex items-center justify-center bg-white border border-border/40 rounded-xl hover:bg-primary hover:text-white transition-all shadow-sm"><Edit3 className="w-4 h-4" /></button>
-                              <button className="w-10 h-10 flex items-center justify-center bg-white border border-border/40 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"><Trash2 className="w-4 h-4" /></button>
+                              <button onClick={() => handleDelete(std._id)} className="w-10 h-10 flex items-center justify-center bg-white border border-border/40 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"><Trash2 className="w-4 h-4" /></button>
                            </div>
                         </td>
                       </tr>
@@ -180,7 +206,7 @@ export default function ManageStudentsPage() {
 
            {/* Pagination Mockup */}
            <div className="pt-10 border-t border-background flex justify-between items-center">
-              <p className="text-[10px] font-black text-sage uppercase tracking-widest opacity-60">Showing 1 to 5 of 842 students</p>
+              <p className="text-[10px] font-black text-sage uppercase tracking-widest opacity-60">Showing {students.length} students</p>
               <div className="flex gap-2">
                  <button className="w-10 h-10 flex items-center justify-center bg-primary text-white rounded-xl shadow-lg text-[10px] font-black">1</button>
                  <button className="w-10 h-10 flex items-center justify-center bg-background text-primary rounded-xl border border-border shadow-sm text-[10px] font-black hover:bg-primary hover:text-white transition-all">2</button>
@@ -197,5 +223,3 @@ export default function ManageStudentsPage() {
     </DashboardLayout>
   );
 }
-
-

@@ -25,6 +25,50 @@ import { useState } from "react";
 export default function AdmissionPage() {
   const [success, setSuccess] = useState(false);
   const { t, isUrdu } = useLanguage();
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [formData, setFormData] = useState({
+    studentName: "",
+    parentName: "",
+    dob: "",
+    phone: "",
+    address: "",
+    courseAppliedFor: "",
+    previousEducation: "",
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("http://localhost:5000/api/admission", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          email: `${formData.phone}@placeholder.com`, // schema requires email
+          gender: "Not Specified", // schema requires gender
+        }),
+      });
+
+      if (res.ok) {
+         setSuccess(true);
+         setFormData({
+            studentName: "", parentName: "", dob: "", phone: "", address: "", courseAppliedFor: "", previousEducation: ""
+         });
+      } else {
+         const data = await res.json();
+         setError(data.message || "Failed to submit application");
+      }
+    } catch (err) {
+      setError("Network error. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (success) {
     return (
@@ -150,7 +194,8 @@ export default function AdmissionPage() {
                      <Landmark className={`w-12 h-12 text-primary/5 transition-transform group-hover:rotate-12 duration-1000 ${isUrdu ? "-scale-x-100" : ""}`} />
                   </div>
 
-                  <form className="space-y-10 pt-12 relative z-10" onSubmit={(e) => { e.preventDefault(); setSuccess(true); }}>
+                  <form className="space-y-10 pt-12 relative z-10" onSubmit={handleSubmit}>
+                     {error && <div className="p-4 bg-red-100 text-red-600 rounded-xl font-medium">{error}</div>}
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                         <div className="space-y-3">
                            <label className={`text-[10px] font-black uppercase tracking-[0.3em] text-primary/40 ml-2 ${isUrdu ? "font-urdu tracking-normal text-xs mr-2 ml-0" : ""}`}>
@@ -158,7 +203,9 @@ export default function AdmissionPage() {
                            </label>
                            <div className="relative group/input">
                               <User className={`w-5 h-5 absolute ${isUrdu ? "right-5" : "left-5"} top-1/2 -translate-y-1/2 text-primary/20 group-focus-within/input:text-primary transition-colors`} />
-                              <input required type="text" placeholder={t("adm_p.full_name_ph")} className={`w-full h-16 ${isUrdu ? "pr-14 pl-6 text-right" : "pl-14 pr-6"} bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg" : ""}`} />
+                              <input required type="text" placeholder={t("adm_p.full_name_ph")} 
+                                 value={formData.studentName} onChange={e => setFormData({...formData, studentName: e.target.value})}
+                                 className={`w-full h-16 ${isUrdu ? "pr-14 pl-6 text-right" : "pl-14 pr-6"} bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg" : ""}`} />
                            </div>
                         </div>
                         <div className="space-y-3">
@@ -167,7 +214,9 @@ export default function AdmissionPage() {
                            </label>
                            <div className="relative group/input">
                               <Users className={`w-5 h-5 absolute ${isUrdu ? "right-5" : "left-5"} top-1/2 -translate-y-1/2 text-primary/20 group-focus-within/input:text-primary transition-colors`} />
-                              <input required type="text" placeholder={t("adm_p.parent_name_ph")} className={`w-full h-16 ${isUrdu ? "pr-14 pl-6 text-right" : "pl-14 pr-6"} bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg" : ""}`} />
+                              <input required type="text" placeholder={t("adm_p.parent_name_ph")} 
+                                 value={formData.parentName} onChange={e => setFormData({...formData, parentName: e.target.value})}
+                                 className={`w-full h-16 ${isUrdu ? "pr-14 pl-6 text-right" : "pl-14 pr-6"} bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg" : ""}`} />
                            </div>
                         </div>
                         <div className="space-y-3">
@@ -176,7 +225,9 @@ export default function AdmissionPage() {
                            </label>
                            <div className="relative group/input">
                               <Calendar className={`w-5 h-5 absolute ${isUrdu ? "right-5" : "left-5"} top-1/2 -translate-y-1/2 text-primary/20 group-focus-within/input:text-primary transition-colors`} />
-                              <input required type="date" className={`w-full h-16 ${isUrdu ? "pr-14 pl-6 text-right" : "pl-14 pr-6"} bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary transition-all ${isUrdu ? "font-urdu text-lg" : ""}`} />
+                              <input required type="date" 
+                                 value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})}
+                                 className={`w-full h-16 ${isUrdu ? "pr-14 pl-6 text-right" : "pl-14 pr-6"} bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary transition-all ${isUrdu ? "font-urdu text-lg" : ""}`} />
                            </div>
                         </div>
                         <div className="space-y-3">
@@ -185,7 +236,9 @@ export default function AdmissionPage() {
                            </label>
                            <div className="relative group/input">
                               <Phone className={`w-5 h-5 absolute ${isUrdu ? "right-5" : "left-5"} top-1/2 -translate-y-1/2 text-primary/20 group-focus-within/input:text-primary transition-colors`} />
-                              <input required type="tel" placeholder="9527635311" className={`w-full h-16 ${isUrdu ? "pr-14 pl-6 text-right" : "pl-14 pr-6"} bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg" : ""}`} />
+                              <input required type="tel" placeholder="9527635311" 
+                                 value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})}
+                                 className={`w-full h-16 ${isUrdu ? "pr-14 pl-6 text-right" : "pl-14 pr-6"} bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg" : ""}`} />
                            </div>
                         </div>
                      </div>
@@ -196,7 +249,9 @@ export default function AdmissionPage() {
                         </label>
                         <div className="relative group/input">
                            <MapPin className={`w-5 h-5 absolute ${isUrdu ? "right-5" : "left-5"} top-8 -translate-y-1/2 text-primary/20 group-focus-within/input:text-primary transition-colors`} />
-                           <textarea required rows={4} placeholder={t("adm_p.address_ph")} className={`w-full ${isUrdu ? "pr-14 pl-6 text-right" : "pl-14 pr-6"} py-6 bg-cream border border-primary/5 rounded-3xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all resize-none italic ${isUrdu ? "font-urdu text-lg" : ""}`}></textarea>
+                           <textarea required rows={4} placeholder={t("adm_p.address_ph")} 
+                              value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})}
+                              className={`w-full ${isUrdu ? "pr-14 pl-6 text-right" : "pl-14 pr-6"} py-6 bg-cream border border-primary/5 rounded-3xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all resize-none italic ${isUrdu ? "font-urdu text-lg" : ""}`}></textarea>
                         </div>
                      </div>
 
@@ -207,7 +262,9 @@ export default function AdmissionPage() {
                            </label>
                            <div className="relative group/input">
                               <BookOpen className={`w-5 h-5 absolute ${isUrdu ? "right-5" : "left-5"} top-1/2 -translate-y-1/2 text-primary/20 group-focus-within/input:text-primary transition-colors`} />
-                              <select required className={`w-full h-16 ${isUrdu ? "pr-14 pl-6 text-right" : "pl-14 pr-6"} bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary appearance-none transition-all ${isUrdu ? "font-urdu text-lg" : ""}`}>
+                              <select required 
+                                 value={formData.courseAppliedFor} onChange={e => setFormData({...formData, courseAppliedFor: e.target.value})}
+                                 className={`w-full h-16 ${isUrdu ? "pr-14 pl-6 text-right" : "pl-14 pr-6"} bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary appearance-none transition-all ${isUrdu ? "font-urdu text-lg" : ""}`}>
                                  <option value="">{t("adm_p.course_select")}</option>
                                  <option>{t("course.c1_title")}</option>
                                  <option>{t("course.c2_title")}</option>
@@ -222,7 +279,9 @@ export default function AdmissionPage() {
                            </label>
                            <div className="relative group/input">
                               <GraduationCap className={`w-5 h-5 absolute ${isUrdu ? "right-5" : "left-5"} top-1/2 -translate-y-1/2 text-primary/20 group-focus-within/input:text-primary transition-colors`} />
-                              <input type="text" placeholder={t("adm_p.prev_edu_ph")} className={`w-full h-16 ${isUrdu ? "pr-14 pl-6 text-right" : "pl-14 pr-6"} bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg" : ""}`} />
+                              <input type="text" placeholder={t("adm_p.prev_edu_ph")} 
+                                 value={formData.previousEducation} onChange={e => setFormData({...formData, previousEducation: e.target.value})}
+                                 className={`w-full h-16 ${isUrdu ? "pr-14 pl-6 text-right" : "pl-14 pr-6"} bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg" : ""}`} />
                            </div>
                         </div>
                      </div>
@@ -239,8 +298,8 @@ export default function AdmissionPage() {
                         </div>
                      </div>
 
-                     <button type="submit" className={`w-full h-20 bg-primary text-white text-xl font-serif font-black rounded-3xl shadow-2xl hover:bg-primary-dark transition-all transform hover:-translate-y-1 flex items-center justify-center gap-4 group ${isUrdu ? "font-urdu text-2xl flex-row-reverse" : ""}`}>
-                        {t("adm_p.submit_btn")}
+                     <button disabled={loading} type="submit" className={`w-full h-20 bg-primary text-white text-xl font-serif font-black rounded-3xl shadow-2xl hover:bg-primary-dark transition-all transform hover:-translate-y-1 flex items-center justify-center gap-4 group ${isUrdu ? "font-urdu text-2xl flex-row-reverse" : ""} ${loading ? "opacity-70 cursor-not-allowed" : ""}`}>
+                        {loading ? "Sending..." : t("adm_p.submit_btn")}
                         <ArrowRight className={`w-6 h-6 transform ${isUrdu ? "group-hover:-translate-x-3 rotate-180" : "group-hover:translate-x-3"} transition-transform duration-500`} />
                      </button>
 

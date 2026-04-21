@@ -43,6 +43,7 @@ export const ADMIN_SIDEBAR_ITEMS = [
   { name: "Manage Teachers", href: "/admin/teachers", icon: GraduationCap },
   { name: "Admissions", href: "/admin/admissions", icon: UserPlus },
   { name: "Fees & Accounts", href: "/admin/accounts", icon: CreditCard },
+  { name: "Messages", href: "/admin/messages", icon: MessageSquare },
   { name: "Notice Board", href: "/admin/notices", icon: Bell },
   { name: "Results", href: "/admin/results", icon: CheckCircle2 },
 ];

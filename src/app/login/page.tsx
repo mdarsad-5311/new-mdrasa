@@ -7,11 +7,37 @@ import { Landmark, ArrowLeft, ArrowRight, ShieldCheck, Mail, Lock, User, Users, 
 
 export default function LoginPage() {
   const [role, setRole] = useState<"student" | "parent" | "admin">("student");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const router = useRouter();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push(`/${role}/dashboard`);
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("http://localhost:5000/api/users/login", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({ email, password })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+         localStorage.setItem("token", data.token);
+         localStorage.setItem("user", JSON.stringify(data));
+         router.push(`/${role}/dashboard`);
+      } else {
+         setError(data.message || "Invalid credentials");
+      }
+    } catch (err) {
+      setError("Network error. Could not reach the server.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -105,17 +131,20 @@ export default function LoginPage() {
 
           {/* Form */}
           <form className="space-y-8" onSubmit={handleLogin}>
+            {error && <div className="p-4 bg-red-100/50 border border-red-200 text-red-600 rounded-2xl text-sm font-bold text-center">{error}</div>}
             <div className="space-y-6">
               <div className="space-y-2 group">
                  <label className="text-xs font-black text-primary/40 uppercase tracking-[0.2em] ml-2">
-                   {role === "admin" ? "Staff/Admin ID" : role === "parent" ? "Parent's ID/Email" : "Student Email"}
+                   {role === "admin" ? "Staff/Admin Email" : role === "parent" ? "Parent's Email" : "Student Email"}
                  </label>
                  <div className="relative">
                    <Mail className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-primary/20 group-focus-within:text-primary transition-colors" />
                    <input 
-                     type="text" 
+                     type="email" 
                      required
-                     placeholder={`Enter ${role === "admin" ? "Admin ID" : role === "parent" ? "Parent Email" : "Student Email"}`}
+                     value={email}
+                     onChange={(e) => setEmail(e.target.value)}
+                     placeholder={`Enter ${role === "admin" ? "Admin Email" : role === "parent" ? "Parent Email" : "Student Email"}`}
                      className="w-full h-14 pl-12 pr-4 bg-cream border border-primary/5 rounded-2xl outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-primary placeholder:font-medium placeholder:text-primary/20"
                    />
                  </div>
@@ -128,6 +157,8 @@ export default function LoginPage() {
                    <input 
                      type="password" 
                      required
+                     value={password}
+                     onChange={(e) => setPassword(e.target.value)}
                      placeholder="••••••••"
                      className="w-full h-14 pl-12 pr-4 bg-cream border border-primary/5 rounded-2xl outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-primary placeholder:font-medium placeholder:text-primary/20"
                    />
@@ -147,10 +178,11 @@ export default function LoginPage() {
             </div>
 
             <button 
+              disabled={loading}
               type="submit"
-              className="w-full h-16 bg-primary text-white text-xl font-serif font-bold rounded-2xl shadow-xl hover:bg-primary-dark transition-all transform hover:-translate-y-1 flex items-center justify-center gap-4 group"
+              className={`w-full h-16 bg-primary text-white text-xl font-serif font-bold rounded-2xl shadow-xl hover:bg-primary-dark transition-all transform hover:-translate-y-1 flex items-center justify-center gap-4 group ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
             >
-              Sign In To System
+              {loading ? "Authenticating..." : "Wait, Sign In To System"}
               <ArrowRight className="w-6 h-6 transform group-hover:translate-x-2 transition-transform duration-500" />
             </button>
           </form>
@@ -173,5 +205,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-

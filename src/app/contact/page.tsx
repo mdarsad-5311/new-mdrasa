@@ -20,6 +20,41 @@ import { useLanguage } from "@/context/LanguageContext";
 export default function ContactPage() {
   const [sent, setSent] = useState(false);
   const { t, isUrdu } = useLanguage();
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    subject: "",
+    message: ""
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("http://localhost:5000/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (res.ok) {
+         setSent(true);
+         setFormData({ name: "", phone: "", email: "", subject: "", message: "" });
+      } else {
+         const data = await res.json();
+         setError(data.message || "Failed to send message");
+      }
+    } catch (err) {
+      setError("Network error. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className={`flex flex-col min-h-screen bg-background overflow-hidden ${isUrdu ? "font-urdu" : "font-sans"}`}>
@@ -134,14 +169,17 @@ export default function ContactPage() {
                         <Send className={`w-12 h-12 text-primary/5 transition-transform group-hover:rotate-12 duration-1000 ${isUrdu ? "-scale-x-100" : ""}`} />
                      </div>
 
-                     <form className="space-y-10 pt-12 relative z-10" onSubmit={(e) => { e.preventDefault(); setSent(true); }}>
+                     <form className="space-y-10 pt-12 relative z-10" onSubmit={handleSubmit}>
+                        {error && <div className="p-4 bg-red-100 text-red-600 rounded-xl font-medium">{error}</div>}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                            <div className="space-y-3">
                               <label className={`text-[10px] font-black uppercase tracking-[0.3em] text-primary/40 ml-2 ${isUrdu ? "font-urdu tracking-normal text-xs text-right mr-2 ml-0" : ""}`}>
                                 {t("con_p.full_name")}
                               </label>
                               <div className="relative group/input">
-                                 <input required type="text" placeholder={t("con_p.name_ph")} className={`w-full h-16 px-8 bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg text-right" : ""}`} />
+                                 <input required type="text" placeholder={t("con_p.name_ph")} 
+                                    value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}
+                                    className={`w-full h-16 px-8 bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg text-right" : ""}`} />
                               </div>
                            </div>
                            <div className="space-y-3">
@@ -149,7 +187,9 @@ export default function ContactPage() {
                                 {t("con_p.phone")}
                               </label>
                               <div className="relative group/input">
-                                 <input required type="tel" placeholder="9527635311" className={`w-full h-16 px-8 bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg text-right" : ""}`} />
+                                 <input required type="tel" placeholder="9527635311" 
+                                    value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})}
+                                    className={`w-full h-16 px-8 bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg text-right" : ""}`} />
                               </div>
                            </div>
                            <div className="space-y-3">
@@ -157,7 +197,9 @@ export default function ContactPage() {
                                 {t("con_p.email")}
                               </label>
                               <div className="relative group/input">
-                                 <input required type="email" placeholder="example@mail.com" className={`w-full h-16 px-8 bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg text-right" : ""}`} />
+                                 <input required type="email" placeholder="example@mail.com" 
+                                    value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})}
+                                    className={`w-full h-16 px-8 bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg text-right" : ""}`} />
                               </div>
                            </div>
                            <div className="space-y-3">
@@ -165,7 +207,9 @@ export default function ContactPage() {
                                 {t("con_p.subject")}
                               </label>
                               <div className="relative group/input">
-                                 <input required type="text" placeholder={t("con_p.sub_ph")} className={`w-full h-16 px-8 bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg text-right" : ""}`} />
+                                 <input required type="text" placeholder={t("con_p.sub_ph")} 
+                                    value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})}
+                                    className={`w-full h-16 px-8 bg-cream border border-primary/5 rounded-2xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all ${isUrdu ? "font-urdu text-lg text-right" : ""}`} />
                               </div>
                            </div>
                         </div>
@@ -174,11 +218,13 @@ export default function ContactPage() {
                            <label className={`text-[10px] font-black uppercase tracking-[0.3em] text-primary/40 ml-2 ${isUrdu ? "font-urdu tracking-normal text-xs text-right mr-2 ml-0" : ""}`}>
                              {t("con_p.message")}
                            </label>
-                           <textarea required rows={6} placeholder={t("con_p.msg_ph")} className={`w-full px-8 py-8 bg-cream border border-primary/5 rounded-4xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all resize-none italic ${isUrdu ? "font-urdu text-lg text-right" : ""}`}></textarea>
+                           <textarea required rows={6} placeholder={t("con_p.msg_ph")} 
+                              value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})}
+                              className={`w-full px-8 py-8 bg-cream border border-primary/5 rounded-4xl outline-none focus:ring-4 focus:ring-primary/5 font-bold text-primary placeholder:font-medium transition-all resize-none italic ${isUrdu ? "font-urdu text-lg text-right" : ""}`}></textarea>
                         </div>
 
-                        <button type="submit" className={`w-full h-20 bg-primary text-white text-xl font-serif font-black rounded-3xl shadow-2xl hover:bg-primary-dark transition-all transform hover:-translate-y-1 flex items-center justify-center gap-4 group ${isUrdu ? "font-urdu text-2xl flex-row-reverse" : ""}`}>
-                           {t("con_p.submit_btn")}
+                        <button disabled={loading} type="submit" className={`w-full h-20 bg-primary text-white text-xl font-serif font-black rounded-3xl shadow-2xl hover:bg-primary-dark transition-all transform hover:-translate-y-1 flex items-center justify-center gap-4 group ${isUrdu ? "font-urdu text-2xl flex-row-reverse" : ""} ${loading ? "opacity-70 cursor-not-allowed" : ""}`}>
+                           {loading ? "Sending..." : t("con_p.submit_btn")}
                            <ArrowRight className={`w-6 h-6 transform ${isUrdu ? "-scale-x-100 group-hover:-translate-x-3" : "group-hover:translate-x-3"} transition-transform duration-500 text-accent`} />
                         </button>
 

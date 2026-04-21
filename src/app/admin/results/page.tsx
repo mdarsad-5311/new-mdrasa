@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { ADMIN_SIDEBAR_ITEMS } from "@/lib/constants";
 import { 
@@ -17,24 +17,103 @@ import {
   Plus, 
   ChevronRight,
   Eye,
-  Edit3,
-  BarChart4
+  Trash2,
+  BarChart4,
+  X
 } from "lucide-react";
 
 export default function ResultsAdminPage() {
-  const resultStats = [
-    { label: "EXAMINATION PASS", value: "94%", count: "Yearly Avg", up: true, icon: CheckCircle2, color: "bg-white", text: "text-primary" },
-    { label: "TOP PERFORMERS", value: "48", count: "A+ Grade", up: true, icon: Award, color: "bg-primary text-white", text: "text-white" },
-    { label: "PENDING GRADING", value: "05", count: "Finalizing", up: false, icon: FileText, color: "bg-white", text: "text-primary" },
-    { label: "ACADEMIC RANK", value: "01", count: "Institutional", up: true, icon: Star, color: "bg-accent text-primary", text: "text-primary" },
-  ];
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const results = [
-    { id: 1, student: "Mustafa Ahmed", roll: "2024-001", class: "Hifz Quran", gpa: "3.95", status: "Pass", grade: "A+" },
-    { id: 2, student: "Sara Noor", roll: "2024-042", class: "Nazra Quran", gpa: "3.84", status: "Pass", grade: "A" },
-    { id: 3, student: "Ali Abbas", roll: "2024-085", class: "Hifz Quran", gpa: "4.00", status: "Pass", grade: "A+" },
-    { id: 4, student: "Hassan Raza", roll: "2024-112", class: "Islamic History", gpa: "2.80", status: "Pass", grade: "B" },
-    { id: 5, student: "Zainab Bi", roll: "2024-156", class: "Class 05-A", gpa: "3.50", status: "Pass", grade: "B+" },
+  // Modal setup
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newResult, setNewResult] = useState({ studentName: "", rollNo: "", className: "Hifz Quran", gpa: "", grade: "A+", status: "Pass" });
+  const [modalLoading, setModalLoading] = useState(false);
+
+  const fetchResults = async () => {
+    try {
+        const token = localStorage.getItem("token");
+        const res = await fetch("http://localhost:5000/api/results", {
+           headers: {
+             "Authorization": `Bearer ${token}`
+           }
+        });
+        const data = await res.json();
+        if (res.ok) {
+           setResults(data);
+        }
+    } catch (err) {
+        console.error("Failed to fetch results", err);
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+     fetchResults();
+  }, []);
+
+  const handleCreateResult = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setModalLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/results", {
+         method: "POST",
+         headers: {
+           "Content-Type": "application/json",
+           "Authorization": `Bearer ${token}`
+         },
+         body: JSON.stringify(newResult)
+      });
+      const data = await res.json();
+      if (res.ok) {
+         setResults([data, ...results]);
+         setShowAddModal(false);
+         setNewResult({ studentName: "", rollNo: "", className: "Hifz Quran", gpa: "", grade: "A+", status: "Pass" });
+      } else {
+         alert(data.message || "Failed to submit result");
+      }
+    } catch (err) {
+      alert("Network error");
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if(!confirm("Are you sure you want to permanently delete this student's result?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/results/${id}`, {
+         method: "DELETE",
+         headers: {
+           "Authorization": `Bearer ${token}`
+         }
+      });
+      if (res.ok) {
+         setResults(prev => prev.filter(r => r._id !== id));
+      } else {
+         alert("Failed to delete result.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error.");
+    }
+  };
+
+  const totalResults = results.length;
+  const passedStudents = results.filter(r => r.status === "Pass").length;
+  const passedPercentage = totalResults > 0 ? Math.round((passedStudents / totalResults) * 100) : 0;
+  const topPerformers = results.filter(r => r.grade === "A+" || r.grade === "A").length;
+  const pendingGrading = results.filter(r => r.status === "Pending Grading").length;
+
+  const resultStats = [
+    { label: "EXAMINATION PASS", value: `${passedPercentage}%`, count: "Yearly Avg", up: true, icon: CheckCircle2, color: "bg-white", text: "text-primary" },
+    { label: "TOP PERFORMERS", value: topPerformers.toString(), count: "A/A+ Grade", up: true, icon: Award, color: "bg-primary text-white", text: "text-white" },
+    { label: "PENDING GRADING", value: pendingGrading.toString(), count: "Finalizing", up: false, icon: FileText, color: "bg-white", text: "text-primary" },
+    { label: "ACADEMIC RANK", value: "01", count: "Institutional", up: true, icon: Star, color: "bg-accent text-primary", text: "text-primary" },
   ];
 
   return (
@@ -43,8 +122,77 @@ export default function ResultsAdminPage() {
       sidebarItems={ADMIN_SIDEBAR_ITEMS}
       userProfile={{ name: "Admin Office", roleName: "Head Admin", avatar: "" }}
     >
-      <div className="space-y-12 animate-in fade-in duration-700">
+      <div className="space-y-12 animate-in fade-in duration-700 relative">
         
+        {/* ADD RESULT MODAL */}
+        {showAddModal && (
+          <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-primary/20 backdrop-blur-sm">
+             <div className="bg-white rounded-4xl shadow-premium w-full max-w-lg p-10 relative overflow-hidden h-[90vh] overflow-y-auto">
+                <button onClick={() => setShowAddModal(false)} className="absolute top-6 right-6 p-2 bg-background rounded-full hover:bg-black/5 transition-colors">
+                  <X className="w-5 h-5 text-primary" />
+                </button>
+                <div className="mb-8">
+                  <h3 className="text-3xl font-serif font-bold text-primary">Declare Result</h3>
+                  <p className="text-sage text-sm font-bold uppercase tracking-widest mt-2">Publish Student Grades</p>
+                </div>
+                <form onSubmit={handleCreateResult} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Student Full Name</label>
+                    <input type="text" required value={newResult.studentName} onChange={e => setNewResult({...newResult, studentName: e.target.value})} className="w-full h-14 px-6 bg-background rounded-2xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors" placeholder="e.g. Mustafa Ahmed" />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Roll System Number</label>
+                       <input type="text" required value={newResult.rollNo} onChange={e => setNewResult({...newResult, rollNo: e.target.value})} className="w-full h-14 px-6 bg-background rounded-2xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors" placeholder="RL-1234" />
+                     </div>
+                     <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Class Section</label>
+                       <select value={newResult.className} onChange={e => setNewResult({...newResult, className: e.target.value})} className="w-full h-14 px-6 bg-background rounded-2xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors cursor-pointer appearance-none">
+                          <option value="Hifz Quran">Hifz Quran</option>
+                          <option value="Nazra Quran">Nazra Quran</option>
+                          <option value="Aalim Course">Aalim Course</option>
+                          <option value="Islamic History">Islamic History</option>
+                       </select>
+                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">GPA / Score (Out of 4.0)</label>
+                       <input type="text" required value={newResult.gpa} onChange={e => setNewResult({...newResult, gpa: e.target.value})} className="w-full h-14 px-6 bg-background rounded-2xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors" placeholder="3.95" />
+                     </div>
+                     <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Final Grade Letter</label>
+                       <select value={newResult.grade} onChange={e => setNewResult({...newResult, grade: e.target.value})} className="w-full h-14 px-6 bg-background rounded-2xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors cursor-pointer appearance-none">
+                          <option value="A+">A+</option>
+                          <option value="A">A</option>
+                          <option value="B+">B+</option>
+                          <option value="B">B</option>
+                          <option value="C">C</option>
+                          <option value="D">D</option>
+                          <option value="F">F</option>
+                       </select>
+                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Final Outcomes / Pass Status</label>
+                    <select value={newResult.status} onChange={e => setNewResult({...newResult, status: e.target.value})} className="w-full h-14 px-6 bg-background rounded-2xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors cursor-pointer appearance-none">
+                        <option value="Pass">Pass Exam</option>
+                        <option value="Pending Grading">Pending Verification</option>
+                        <option value="Fail">Failed Requirement</option>
+                    </select>
+                  </div>
+
+                  <button type="submit" disabled={modalLoading} className="w-full h-14 bg-primary text-white rounded-2xl font-bold shadow-soft hover:shadow-premium transition-all mt-4">
+                    {modalLoading ? "Publishing Records..." : "Submit Result Entry"}
+                  </button>
+                </form>
+             </div>
+          </div>
+        )}
+
         {/* Header Summary */}
         <div className="flex flex-col lg:flex-row justify-between items-end gap-10">
            <div className="space-y-4">
@@ -54,11 +202,7 @@ export default function ResultsAdminPage() {
            </div>
            
            <div className="flex gap-5 pb-2">
-              <button className="flex items-center gap-3 bg-white border border-border/50 text-primary px-10 py-5 rounded-full font-bold shadow-soft hover:shadow-premium transition-all active:scale-95 group">
-                 <BarChart4 className="w-5 h-5 text-accent" />
-                 <span className="text-[11px] font-black uppercase tracking-widest leading-none">Class Performance</span>
-              </button>
-              <button className="flex items-center gap-3 bg-primary text-white px-10 py-5 rounded-full font-bold shadow-premium hover:shadow-pill transition-all active:scale-95 group">
+              <button onClick={() => setShowAddModal(true)} className="flex items-center gap-3 bg-primary text-white px-10 py-5 rounded-full font-bold shadow-premium hover:shadow-pill transition-all active:scale-95 group">
                  <Plus className="w-5 h-5 text-accent" />
                  <span className="text-[11px] font-black uppercase tracking-widest leading-none">Declare Result</span>
               </button>
@@ -81,10 +225,6 @@ export default function ResultsAdminPage() {
                   <p className={`text-6xl font-serif font-bold tracking-tight leading-none ${stat.text}`}>{stat.value}</p>
                   <p className={`text-[10px] font-black uppercase tracking-[0.3em] leading-none opacity-40 mt-4 ${stat.text}`}>{stat.label}</p>
                 </div>
-                <div className="pt-6 border-t border-black/5 flex items-center justify-between transition-all">
-                   <span className={`text-[10px] font-bold italic opacity-40 uppercase tracking-widest ${stat.text}`}>Performance Reports</span>
-                   <ChevronRight className={`w-4 h-4 opacity-20 group-hover:translate-x-2 ${stat.text}`} />
-                </div>
              </div>
            ))}
         </div>
@@ -98,7 +238,7 @@ export default function ResultsAdminPage() {
                  <Search className="w-5 h-5 text-sage/40" />
                  <input 
                    type="text" 
-                   placeholder="Search gradebook by roll number..." 
+                   placeholder="Search gradebook by student roll number..." 
                    className="flex-1 bg-transparent border-none outline-none pl-4 text-sm font-medium text-primary placeholder:text-sage/40" 
                  />
               </div>
@@ -110,15 +250,6 @@ export default function ResultsAdminPage() {
                        <option>Examination Cycle</option>
                        <option>Annual 2024</option>
                        <option>Mid-Term 2024</option>
-                       <option>Monthly Test</option>
-                    </select>
-                 </div>
-                 <div className="flex items-center gap-3 px-8 py-5 bg-background border border-border/40 rounded-full h-18 shadow-soft">
-                    <TrendingUp className="w-4 h-4 text-sage" />
-                    <select className="bg-transparent border-none outline-none text-[11px] font-black uppercase tracking-widest text-primary cursor-pointer pr-4">
-                       <option>Class Wise</option>
-                       <option>Hifz Quran</option>
-                       <option>Advanced Arabic</option>
                     </select>
                  </div>
               </div>
@@ -137,16 +268,20 @@ export default function ResultsAdminPage() {
                     </tr>
                  </thead>
                  <tbody className="divide-y divide-background">
-                    {results.map((res) => (
-                      <tr key={res.id} className="group hover:bg-background/20 transition-all duration-300">
+                    {loading ? (
+                      <tr><td colSpan={5} className="text-center py-10 opacity-50 font-bold">Loading Academic Results...</td></tr>
+                    ) : results.length === 0 ? (
+                      <tr><td colSpan={5} className="text-center py-10 opacity-50 font-bold">No results declared yet.</td></tr>
+                    ) : results.map((res) => (
+                      <tr key={res._id} className="group hover:bg-background/20 transition-all duration-300">
                         <td className="py-10 px-8">
                            <div className="flex items-center gap-6">
                               <div className="w-14 h-14 bg-primary/5 rounded-2xl flex items-center justify-center font-serif font-bold text-primary text-xl border border-primary/10 shadow-sm relative shrink-0">
                                  <Users className="w-6 h-6 text-primary" />
                               </div>
                               <div>
-                                 <p className="text-lg font-serif font-bold text-primary group-hover:text-accent transition-colors leading-tight">{res.student}</p>
-                                 <p className="text-[10px] font-black text-sage tracking-widest mt-1 uppercase opacity-60">Roll No: {res.roll} | {res.class}</p>
+                                 <p className="text-lg font-serif font-bold text-primary group-hover:text-accent transition-colors leading-tight">{res.studentName}</p>
+                                 <p className="text-[10px] font-black text-sage tracking-widest mt-1 uppercase opacity-60">Roll No: {res.rollNo} | {res.className}</p>
                               </div>
                            </div>
                         </td>
@@ -164,8 +299,12 @@ export default function ResultsAdminPage() {
                            </div>
                         </td>
                         <td className="py-10 px-8">
-                           <span className={`inline-flex items-center gap-3 text-[9px] font-black uppercase tracking-widest px-5 py-2.5 rounded-full border shadow-soft bg-green-50 text-green-600 border-green-100`}>
-                              Passed Exam
+                           <span className={`inline-flex items-center gap-3 text-[9px] font-black uppercase tracking-widest px-5 py-2.5 rounded-full border shadow-soft ${
+                             res.status === "Pass" ? 'bg-green-50 text-green-600 border-green-100' :
+                             res.status === "Fail" ? 'bg-red-50 text-red-600 border-red-100' :
+                             'bg-orange-50 text-orange-600 border-orange-100'
+                           }`}>
+                              {res.status}
                            </span>
                         </td>
                         <td className="py-10 px-8">
@@ -173,8 +312,8 @@ export default function ResultsAdminPage() {
                               <button className="w-12 h-12 flex items-center justify-center bg-white border border-border/40 rounded-2xl hover:bg-primary hover:text-white transition-all shadow-sm group/btn" title="View Gradecard">
                                  <Eye className="w-4 h-4" />
                               </button>
-                              <button className="w-12 h-12 flex items-center justify-center bg-white border border-border/40 rounded-2xl hover:bg-accent hover:text-primary transition-all shadow-sm group/btn" title="Download Report Card">
-                                 <Download className="w-4 h-4" />
+                              <button onClick={() => handleDelete(res._id)} className="w-12 h-12 flex items-center justify-center bg-white border border-border/40 rounded-2xl hover:bg-red-500 hover:text-white transition-all shadow-sm group/btn" title="Delete Form">
+                                 <Trash2 className="w-4 h-4" />
                               </button>
                            </div>
                         </td>
@@ -201,5 +340,3 @@ export default function ResultsAdminPage() {
     </DashboardLayout>
   );
 }
-
-

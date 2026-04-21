@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { ADMIN_SIDEBAR_ITEMS } from "@/lib/constants";
 import { 
@@ -20,23 +20,96 @@ import {
   Clock,
   Plus,
   BookOpen,
-  Briefcase
+  Briefcase,
+  X
 } from "lucide-react";
 
 export default function ManageTeachersPage() {
-  const teacherStats = [
-    { label: "TOTAL TEACHERS", value: "42", count: "Academic", up: true, icon: GraduationCap, color: "bg-white" },
-    { label: "ACTIVE STAFF", value: "38", count: "+2", up: true, icon: CheckCircle2, color: "bg-primary text-white" },
-    { label: "NEW APPOINTMENTS", value: "05", count: "This Year", up: true, icon: UserPlus, color: "bg-white" },
-    { label: "DEPARTMENTS", value: "08", count: "Categories", up: false, icon: BookOpen, color: "bg-accent text-primary" },
-  ];
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newTeacher, setNewTeacher] = useState({ name: "", email: "", phone: "", subject: "" });
+  const [modalLoading, setModalLoading] = useState(false);
 
-  const teachers = [
-    { id: 1, name: "Maulana Hafiz Ahmed", subject: "Hifz-ul-Quran", phone: "+91 98765 43210", joining: "Jan 2022", status: "Active", classes: "Hifz-A, Hifz-B" },
-    { id: 2, name: "Sheikh Ibrahim", subject: "Arabic Language", phone: "+91 98765 12345", joining: "Aug 2021", status: "Active", classes: "Class 03-B, 04-A" },
-    { id: 3, name: "Ustadh Umar Khalid", subject: "Islamic History", phone: "+91 99988 77766", joining: "Mar 2023", status: "On Leave", classes: "Class 05-C" },
-    { id: 4, name: "Mualimah Sara Bi", subject: "Nazra Quran", phone: "+91 88877 66655", joining: "Jun 2022", status: "Active", classes: "Nazra-A" },
-    { id: 5, name: "Maulana Zaid Khan", subject: "Fiqh & Hadith", phone: "+91 77766 55544", joining: "Feb 2024", status: "Probation", classes: "Senior-A" },
+  const fetchTeachers = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/teachers", {
+         headers: {
+           "Authorization": `Bearer ${token}`
+         }
+      });
+      const data = await res.json();
+      if (res.ok) {
+         setTeachers(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch teachers", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTeachers();
+  }, []);
+
+  const handleAddTeacher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setModalLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/teachers", {
+         method: "POST",
+         headers: {
+           "Content-Type": "application/json",
+           "Authorization": `Bearer ${token}`
+         },
+         body: JSON.stringify(newTeacher)
+      });
+      const data = await res.json();
+      if (res.ok) {
+         setTeachers([data, ...teachers]);
+         setShowAddModal(false);
+         setNewTeacher({ name: "", email: "", phone: "", subject: "" });
+      } else {
+         alert(data.message || "Failed to add teacher");
+      }
+    } catch (err) {
+      alert("Network error");
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if(!confirm("Are you sure you want to permanently delete this teacher record?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/teachers/${id}`, {
+         method: "DELETE",
+         headers: {
+           "Authorization": `Bearer ${token}`
+         }
+      });
+      if (res.ok) {
+         setTeachers(prev => prev.filter(t => t._id !== id));
+      } else {
+         alert("Failed to delete teacher.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error.");
+    }
+  };
+
+  const activeStaff = teachers.filter(t => t.status === 'active').length;
+
+  const teacherStats = [
+    { label: "TOTAL TEACHERS", value: teachers.length.toString(), count: "Academic", up: true, icon: GraduationCap, color: "bg-white" },
+    { label: "ACTIVE STAFF", value: activeStaff.toString(), count: "+2", up: true, icon: CheckCircle2, color: "bg-primary text-white" },
+    { label: "NEW APPOINTMENTS", value: "0", count: "This Year", up: true, icon: UserPlus, color: "bg-white" },
+    { label: "DEPARTMENTS", value: "08", count: "Categories", up: false, icon: BookOpen, color: "bg-accent text-primary" },
   ];
 
   return (
@@ -45,8 +118,44 @@ export default function ManageTeachersPage() {
       sidebarItems={ADMIN_SIDEBAR_ITEMS}
       userProfile={{ name: "Admin Office", roleName: "Head Admin", avatar: "" }}
     >
-      <div className="space-y-12 animate-in fade-in duration-700">
+      <div className="space-y-12 animate-in fade-in duration-700 relative">
         
+        {/* ADD TEACHER MODAL */}
+        {showAddModal && (
+          <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-primary/20 backdrop-blur-sm">
+             <div className="bg-white rounded-4xl shadow-premium w-full max-w-lg p-10 relative overflow-hidden">
+                <button onClick={() => setShowAddModal(false)} className="absolute top-6 right-6 p-2 bg-background rounded-full hover:bg-black/5 transition-colors">
+                  <X className="w-5 h-5 text-primary" />
+                </button>
+                <div className="mb-8">
+                  <h3 className="text-3xl font-serif font-bold text-primary">Add Teacher</h3>
+                  <p className="text-sage text-sm font-bold uppercase tracking-widest mt-2">New Staff Registration</p>
+                </div>
+                <form onSubmit={handleAddTeacher} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Full Name</label>
+                    <input type="text" required value={newTeacher.name} onChange={e => setNewTeacher({...newTeacher, name: e.target.value})} className="w-full h-14 px-6 bg-background rounded-2xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors" placeholder="e.g. Maulana Hafiz" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Email Address</label>
+                    <input type="email" required value={newTeacher.email} onChange={e => setNewTeacher({...newTeacher, email: e.target.value})} className="w-full h-14 px-6 bg-background rounded-2xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors" placeholder="teacher@mdrasa.edu" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Phone Number</label>
+                    <input type="text" required value={newTeacher.phone} onChange={e => setNewTeacher({...newTeacher, phone: e.target.value})} className="w-full h-14 px-6 bg-background rounded-2xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors" placeholder="+91 90000 00000" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Primary Subject / Dept</label>
+                    <input type="text" required value={newTeacher.subject} onChange={e => setNewTeacher({...newTeacher, subject: e.target.value})} className="w-full h-14 px-6 bg-background rounded-2xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors" placeholder="e.g. Hifz-ul-Quran" />
+                  </div>
+                  <button type="submit" disabled={modalLoading} className="w-full h-14 bg-primary text-white rounded-2xl font-bold shadow-soft hover:shadow-premium transition-all">
+                    {modalLoading ? "Saving..." : "Register Teacher"}
+                  </button>
+                </form>
+             </div>
+          </div>
+        )}
+
         {/* Header Summary */}
         <div className="flex flex-col lg:flex-row justify-between items-end gap-10">
            <div className="space-y-4">
@@ -60,7 +169,7 @@ export default function ManageTeachersPage() {
                  <Download className="w-5 h-5 text-sage" />
                  <span className="text-[11px] font-black uppercase tracking-widest leading-none">Export Staff List</span>
               </button>
-              <button className="flex items-center gap-3 bg-primary text-white px-10 py-5 rounded-full font-bold shadow-premium hover:shadow-pill transition-all active:scale-95 group">
+              <button onClick={() => setShowAddModal(true)} className="flex items-center gap-3 bg-primary text-white px-10 py-5 rounded-full font-bold shadow-premium hover:shadow-pill transition-all active:scale-95 group">
                  <Plus className="w-5 h-5 text-accent" />
                  <span className="text-[11px] font-black uppercase tracking-widest leading-none">Add Teacher</span>
               </button>
@@ -133,13 +242,16 @@ export default function ManageTeachersPage() {
                        <th className="pb-8 text-[10px] font-black text-primary/30 uppercase tracking-[0.2em] px-6">Contact info</th>
                        <th className="pb-8 text-[10px] font-black text-primary/30 uppercase tracking-[0.2em] px-6">Joining Date</th>
                        <th className="pb-8 text-[10px] font-black text-primary/30 uppercase tracking-[0.2em] px-6">Status</th>
-                       <th className="pb-8 text-[10px] font-black text-primary/30 uppercase tracking-[0.2em] px-6">Classes</th>
                        <th className="pb-8 text-[10px] font-black text-primary/30 uppercase tracking-[0.2em] px-6 text-right">Action</th>
                     </tr>
                  </thead>
                  <tbody className="divide-y divide-background">
-                    {teachers.map((teacher) => (
-                      <tr key={teacher.id} className="group hover:bg-background/20 transition-all duration-300">
+                    {loading ? (
+                      <tr><td colSpan={6} className="text-center py-8 font-bold opacity-50">Loading Teachers...</td></tr>
+                    ) : teachers.length === 0 ? (
+                      <tr><td colSpan={6} className="text-center py-8 font-bold opacity-50">No teachers found. Click Add Teacher.</td></tr>
+                    ) : teachers.map((teacher) => (
+                      <tr key={teacher._id} className="group hover:bg-background/20 transition-all duration-300">
                         <td className="py-8 px-6">
                            <div className="flex items-center gap-4">
                               <div className="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center font-serif font-bold text-primary text-lg border border-primary/10 shadow-sm">{teacher.name.charAt(0)}</div>
@@ -149,30 +261,26 @@ export default function ManageTeachersPage() {
                         <td className="py-8 px-6">
                            <span className="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-primary/5 text-primary border border-primary/10 rounded-full">{teacher.subject}</span>
                         </td>
-                        <td className="py-8 px-6 text-[11px] font-black text-sage tracking-widest opacity-60 leading-none">{teacher.phone}</td>
-                        <td className="py-8 px-6 text-sm font-bold text-primary/60 italic">{teacher.joining}</td>
+                        <td className="py-8 px-6 text-[11px] font-black text-sage tracking-widest opacity-60 leading-none">
+                           {teacher.phone}<br/>
+                           <span className="text-[9px] lowercase opacity-50">{teacher.email}</span>
+                        </td>
+                        <td className="py-8 px-6 text-sm font-bold text-primary/60 italic">{new Date(teacher.createdAt).toLocaleDateString()}</td>
                         <td className="py-8 px-6">
                            <span className={`inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full border ${
-                             teacher.status === "Active" ? "bg-green-50 text-green-600 border-green-100" :
-                             teacher.status === "On Leave" ? "bg-orange-50 text-orange-600 border-orange-100" :
-                             "bg-blue-50 text-blue-600 border-blue-100"
+                             teacher.status === "active" ? "bg-green-50 text-green-600 border-green-100" :
+                             "bg-orange-50 text-orange-600 border-orange-100"
                            }`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${
-                                teacher.status === "Active" ? "bg-green-600" :
-                                teacher.status === "On Leave" ? "bg-orange-600" :
-                                "bg-blue-600"
+                                teacher.status === "active" ? "bg-green-600" :
+                                "bg-orange-600"
                               }`}></span>
                               {teacher.status}
                            </span>
                         </td>
-                        <td className="py-8 px-6 text-[10px] font-bold text-primary opacity-50 uppercase tracking-tighter">
-                           {teacher.classes}
-                        </td>
                         <td className="py-8 px-6">
                            <div className="flex items-center justify-end gap-3 opacity-20 group-hover:opacity-100 transition-opacity">
-                              <button className="w-10 h-10 flex items-center justify-center bg-white border border-border/40 rounded-xl hover:bg-primary hover:text-white transition-all shadow-sm"><Eye className="w-4 h-4" /></button>
-                              <button className="w-10 h-10 flex items-center justify-center bg-white border border-border/40 rounded-xl hover:bg-primary hover:text-white transition-all shadow-sm"><Edit3 className="w-4 h-4" /></button>
-                              <button className="w-10 h-10 flex items-center justify-center bg-white border border-border/40 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"><Trash2 className="w-4 h-4" /></button>
+                              <button onClick={() => handleDelete(teacher._id)} className="w-10 h-10 flex items-center justify-center bg-white border border-border/40 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"><Trash2 className="w-4 h-4" /></button>
                            </div>
                         </td>
                       </tr>
@@ -183,14 +291,10 @@ export default function ManageTeachersPage() {
 
            {/* Pagination Mockup */}
            <div className="pt-10 border-t border-background flex justify-between items-center">
-              <p className="text-[10px] font-black text-sage uppercase tracking-widest opacity-60">Showing 1 to 5 of 42 teachers</p>
+              <p className="text-[10px] font-black text-sage uppercase tracking-widest opacity-60">Showing {teachers.length} teachers</p>
               <div className="flex gap-2">
                  <button className="w-10 h-10 flex items-center justify-center bg-primary text-white rounded-xl shadow-lg text-[10px] font-black">1</button>
-                 <button className="w-10 h-10 flex items-center justify-center bg-background text-primary rounded-xl border border-border shadow-sm text-[10px] font-black hover:bg-primary hover:text-white transition-all">2</button>
-                 <div className="w-10 h-10 flex items-center justify-center text-sage">...</div>
-                 <button className="h-10 flex items-center justify-center bg-background text-primary rounded-xl border border-border shadow-sm text-[10px] font-black hover:bg-primary hover:text-white transition-all gap-2 px-6">
-                    NEXT <ChevronRight className="w-3 h-3" />
-                 </button>
+                 <button className="w-10 h-10 flex items-center justify-center bg-background text-primary rounded-xl border border-border shadow-sm text-[10px] font-black hover:bg-primary hover:text-white transition-all px-2">Next Page <ChevronRight className="w-3 h-3 ml-2" /></button>
               </div>
            </div>
         </div>
@@ -199,5 +303,3 @@ export default function ManageTeachersPage() {
     </DashboardLayout>
   );
 }
-
-

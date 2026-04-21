@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { ADMIN_SIDEBAR_ITEMS } from "@/lib/constants";
 import { 
@@ -18,25 +18,93 @@ import {
   Clock,
   Plus,
   FileText,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from "lucide-react";
 
 export default function AdmissionsPage() {
   const [activeStatus, setActiveStatus] = useState("all");
+  const [applications, setApplications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAdmissions = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/admission", {
+         headers: {
+           "Authorization": `Bearer ${token}`
+         }
+      });
+      const data = await res.json();
+      if (res.ok) {
+         setApplications(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch applications", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAdmissions();
+  }, []);
+
+  const handleUpdateStatus = async (id: string, newStatus: string) => {
+    if(!confirm(`Are you sure you want to mark this as ${newStatus}?`)) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/admission/${id}`, {
+         method: "PUT",
+         headers: {
+           "Content-Type": "application/json",
+           "Authorization": `Bearer ${token}`
+         },
+         body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) {
+         // Optionally refresh or update local state
+         setApplications(prev => prev.map(app => app._id === id ? { ...app, status: newStatus } : app));
+      } else {
+         alert("Failed to update status.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error.");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if(!confirm("Are you sure you want to completely delete this application? This cannot be undone.")) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/admission/${id}`, {
+         method: "DELETE",
+         headers: {
+           "Authorization": `Bearer ${token}`
+         }
+      });
+      if (res.ok) {
+         setApplications(prev => prev.filter(app => app._id !== id));
+      } else {
+         alert("Failed to delete application.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error.");
+    }
+  };
+
+  const total = applications.length;
+  const pending = applications.filter((a) => a.status === 'pending').length;
+  const approved = applications.filter((a) => a.status === 'approved').length;
+  const rejected = applications.filter((a) => a.status === 'rejected').length;
 
   const admissionStats = [
-    { label: "TOTAL APPLICATIONS", value: "128", count: "Session 26", up: true, icon: FileText, color: "bg-white" },
-    { label: "PENDING REVIEW", value: "14", count: "Action Needs", up: false, icon: Clock, color: "bg-primary text-white" },
-    { label: "APPROVED", value: "86", count: "Admitted", up: true, icon: CheckCircle2, color: "bg-white" },
-    { label: "REJECTED", value: "08", count: "Withdrawn", up: false, icon: XCircle, color: "bg-accent text-primary" },
-  ];
-
-  const applications = [
-    { id: 1, name: "Ali Abbas", parent: "Abbas Ali", contact: "+91 99988 77766", class: "Hifz-ul-Quran", date: "Mar 24, 2024", status: "Pending" },
-    { id: 2, name: "Sara Noor", parent: "Umar Farooq", contact: "+91 98765 12345", class: "Nazra Quran", date: "Mar 22, 2024", status: "Approved" },
-    { id: 3, name: "Hassan Raza", parent: "Khalid Raza", contact: "+91 88877 66655", class: "Class 03-B", date: "Mar 20, 2024", status: "Processing" },
-    { id: 4, name: "Zainab Bi", parent: "Mohd Ashraf", contact: "+91 77766 55544", class: "Islamic Studies", date: "Mar 18, 2024", status: "Under Review" },
-    { id: 5, name: "Omar Khalid", parent: "Khalid Aziz", contact: "+91 66655 44433", class: "Hifz Quran", date: "Mar 15, 2024", status: "Rejected" },
+    { label: "TOTAL APPLICATIONS", value: total.toString(), count: "Session 26", up: true, icon: FileText, color: "bg-white", text: "text-primary" },
+    { label: "PENDING REVIEW", value: pending.toString(), count: "Action Needs", up: false, icon: Clock, color: "bg-primary text-white", text: "text-white" },
+    { label: "APPROVED", value: approved.toString(), count: "Admitted", up: true, icon: CheckCircle2, color: "bg-white", text: "text-primary" },
+    { label: "REJECTED", value: rejected.toString(), count: "Withdrawn", up: false, icon: XCircle, color: "bg-accent text-primary", text: "text-primary" },
   ];
 
   return (
@@ -69,12 +137,7 @@ export default function AdmissionsPage() {
 
         {/* Admissions Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-10 pt-4">
-           {[
-             { label: "TOTAL APPLICATIONS", value: "128", count: "+12%", up: true, icon: FileText, color: "bg-white", text: "text-primary" },
-             { label: "PENDING REVIEW", value: "14", count: "Action Needs", up: false, icon: Clock, color: "bg-primary text-white", text: "text-white" },
-             { label: "APPROVED", value: "86", count: "Admitted", up: true, icon: CheckCircle2, color: "bg-white", text: "text-primary" },
-             { label: "REJECTED", value: "08", count: "Withdrawn", up: false, icon: XCircle, color: "bg-accent text-primary", text: "text-primary" },
-           ].map((stat, i) => (
+           {admissionStats.map((stat, i) => (
              <div key={i} className={`p-10 rounded-5xl min-h-[320px] flex flex-col justify-between group cursor-default transition-all hover:shadow-premium ${stat.color} shadow-soft border border-border/50 h-64`}>
                 <div className="flex justify-between items-start">
                    <div className={`w-16 h-16 rounded-full flex items-center justify-center bg-white shadow-soft transition-transform group-hover:scale-110 border border-border/20`}>
@@ -146,24 +209,28 @@ export default function AdmissionsPage() {
                     </tr>
                  </thead>
                  <tbody className="divide-y divide-background">
-                    {applications.map((app) => (
-                      <tr key={app.id} className="group hover:bg-background/20 transition-all duration-300">
+                    {loading ? (
+                      <tr><td colSpan={6} className="text-center py-10 opacity-50 font-bold">Loading records...</td></tr>
+                    ) : applications.length === 0 ? (
+                      <tr><td colSpan={6} className="text-center py-10 opacity-50 font-bold">No applications found.</td></tr>
+                    ) : applications.map((app: any) => (
+                      <tr key={app._id} className="group hover:bg-background/20 transition-all duration-300">
                         <td className="py-8 px-6">
                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center font-serif font-bold text-primary text-lg border border-primary/10 shadow-sm">{app.name.charAt(0)}</div>
-                              <p className="text-base font-bold text-primary leading-none group-hover:text-accent transition-colors underline decoration-transparent group-hover:decoration-accent decoration-2 underline-offset-4">{app.name}</p>
+                              <div className="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center font-serif font-bold text-primary text-lg border border-primary/10 shadow-sm">{app.studentName.charAt(0)}</div>
+                              <p className="text-base font-bold text-primary leading-none group-hover:text-accent transition-colors underline decoration-transparent group-hover:decoration-accent decoration-2 underline-offset-4">{app.studentName}</p>
                            </div>
                         </td>
                         <td className="py-8 px-6">
-                           <p className="text-sm font-bold text-primary leading-none mb-2">{app.parent}</p>
-                           <p className="text-[10px] font-black text-sage tracking-widest opacity-60">{app.contact}</p>
+                           <p className="text-sm font-bold text-primary leading-none mb-2">{app.parentName}</p>
+                           <p className="text-[10px] font-black text-sage tracking-widest opacity-60">{app.phone}</p>
                         </td>
-                        <td className="py-8 px-6 text-sm font-black text-primary tracking-wider opacity-60 leading-none">{app.class}</td>
-                        <td className="py-8 px-6 text-[10px] font-black text-primary/40 uppercase tracking-widest italic">{app.date}</td>
+                        <td className="py-8 px-6 text-sm font-black text-primary tracking-wider opacity-60 leading-none">{app.courseAppliedFor}</td>
+                        <td className="py-8 px-6 text-[10px] font-black text-primary/40 uppercase tracking-widest italic">{new Date(app.createdAt).toLocaleDateString()}</td>
                         <td className="py-8 px-6">
                            <span className={`inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full border ${
-                             app.status === "Approved" ? "bg-green-50 text-green-600 border-green-100" :
-                             app.status === "Rejected" ? "bg-red-50 text-red-600 border-red-100" :
+                             app.status === "approved" ? "bg-green-50 text-green-600 border-green-100" :
+                             app.status === "rejected" ? "bg-red-50 text-red-600 border-red-100" :
                              "bg-orange-50 text-orange-600 border-orange-100"
                            }`}>
                               {app.status}
@@ -171,14 +238,14 @@ export default function AdmissionsPage() {
                         </td>
                         <td className="py-8 px-6">
                            <div className="flex items-center justify-end gap-3 transition-opacity">
-                              <button className="w-10 h-10 flex items-center justify-center bg-white border border-border/40 rounded-xl hover:bg-primary hover:text-white transition-all shadow-sm group/btn" title="Review Application">
-                                 <Eye className="w-4 h-4 active:scale-95" />
-                              </button>
-                              <button className="w-10 h-10 flex items-center justify-center bg-white border border-border/40 rounded-xl hover:bg-green-600 hover:text-white transition-all shadow-sm group/btn" title="Approve Admission">
+                              <button onClick={() => handleUpdateStatus(app._id, "approved")} className="w-10 h-10 flex items-center justify-center bg-white border border-border/40 rounded-xl hover:bg-green-600 hover:text-white transition-all shadow-sm group/btn" title="Approve Admission">
                                  <CheckCircle2 className="w-4 h-4 active:scale-95" />
                               </button>
-                              <button className="w-10 h-10 flex items-center justify-center bg-white border border-border/40 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm group/btn" title="Reject Admission">
+                              <button onClick={() => handleUpdateStatus(app._id, "rejected")} className="w-10 h-10 flex items-center justify-center bg-white border border-border/40 rounded-xl hover:bg-orange-500 hover:text-white transition-all shadow-sm group/btn" title="Reject Admission">
                                  <XCircle className="w-4 h-4 active:scale-95" />
+                              </button>
+                              <button onClick={() => handleDelete(app._id)} className="w-10 h-10 flex items-center justify-center bg-white border border-border/40 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm group/btn" title="Delete Admission">
+                                 <Trash2 className="w-4 h-4 active:scale-95" />
                               </button>
                            </div>
                         </td>
@@ -190,7 +257,7 @@ export default function AdmissionsPage() {
 
            {/* Pagination Mockup */}
            <div className="pt-10 border-t border-background flex justify-between items-center">
-              <p className="text-[10px] font-black text-sage uppercase tracking-widest opacity-60">Showing 1 to 5 of 128 admission requests</p>
+              <p className="text-[10px] font-black text-sage uppercase tracking-widest opacity-60">Showing {applications.length} admission requests</p>
               <div className="flex gap-2">
                  <button className="w-10 h-10 flex items-center justify-center bg-primary text-white rounded-xl shadow-lg text-[10px] font-black">1</button>
                  <button className="w-10 h-10 flex items-center justify-center bg-background text-primary rounded-xl border border-border shadow-sm text-[10px] font-black hover:bg-primary hover:text-white transition-all px-2">Next Page <ChevronRight className="w-3 h-3 ml-2" /></button>
@@ -202,5 +269,3 @@ export default function AdmissionsPage() {
     </DashboardLayout>
   );
 }
-
-

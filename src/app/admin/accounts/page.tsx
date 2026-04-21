@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { ADMIN_SIDEBAR_ITEMS } from "@/lib/constants";
 import { 
@@ -21,23 +21,124 @@ import {
   ShieldCheck,
   ChevronRight,
   Eye,
-  Edit3
+  Trash2,
+  X
 } from "lucide-react";
 
 export default function FeesAccountsPage() {
-  const accountStats = [
-    { label: "TOTAL REVENUE", value: "$42,850", count: "This Quarter", up: true, icon: Landmark, color: "bg-white", text: "text-primary" },
-    { label: "PENDING FEES", value: "$3,450", count: "14 Students", up: false, icon: Clock, color: "bg-primary text-white", text: "text-white" },
-    { label: "SCHOLARSHIPS", value: "$1,200", count: "05 Active", up: true, icon: ShieldCheck, color: "bg-white", text: "text-primary" },
-    { label: "MONTHLY DONATIONS", value: "$4,580", count: "External", up: true, icon: Wallet, color: "bg-accent text-primary", text: "text-primary" },
-  ];
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const transactions = [
-    { id: 1, student: "Mustafa Ahmed", amount: "$450.00", category: "Tuition Fee", date: "Mar 25, 2024", method: "Online", status: "Paid" },
-    { id: 2, student: "Sara Noor", amount: "$120.00", category: "Exam Fee", date: "Mar 22, 2024", method: "Cash", status: "Paid" },
-    { id: 3, student: "Ali Abbas", amount: "$450.00", category: "Tuition Fee", date: "Mar 20, 2024", method: "Pending", status: "Due" },
-    { id: 4, student: "Hassan Raza", amount: "$200.00", category: "Registration", date: "Mar 18, 2024", method: "Online", status: "Paid" },
-    { id: 5, student: "Zainab Bi", amount: "$450.00", category: "Tuition Fee", date: "Mar 15, 2024", method: "Processing", status: "Pending" },
+  // Modal setup
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newTransaction, setNewTransaction] = useState({ payeeName: "", amount: "", category: "Tuition Fee", method: "Online", status: "Paid" });
+  const [modalLoading, setModalLoading] = useState(false);
+
+  const fetchTransactions = async () => {
+    try {
+        const token = localStorage.getItem("token");
+        const res = await fetch("http://localhost:5000/api/transactions", {
+           headers: {
+             "Authorization": `Bearer ${token}`
+           }
+        });
+        const data = await res.json();
+        if (res.ok) {
+           setTransactions(data);
+        }
+    } catch (err) {
+        console.error("Failed to fetch ledger", err);
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+     fetchTransactions();
+  }, []);
+
+  const handleRecordPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setModalLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/transactions", {
+         method: "POST",
+         headers: {
+           "Content-Type": "application/json",
+           "Authorization": `Bearer ${token}`
+         },
+         body: JSON.stringify(newTransaction)
+      });
+      const data = await res.json();
+      if (res.ok) {
+         setTransactions([data, ...transactions]);
+         setShowAddModal(false);
+         setNewTransaction({ payeeName: "", amount: "", category: "Tuition Fee", method: "Online", status: "Paid" });
+      } else {
+         alert(data.message || "Failed to record payment");
+      }
+    } catch (err) {
+      alert("Network error");
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async (id: string, newStatus: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/transactions/${id}`, {
+         method: "PUT",
+         headers: {
+           "Content-Type": "application/json",
+           "Authorization": `Bearer ${token}`
+         },
+         body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) {
+         setTransactions(prev => prev.map(t => t._id === id ? { ...t, status: newStatus } : t));
+      } else {
+         alert("Failed to update payment status.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error.");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if(!confirm("Are you sure you want to delete this financial record?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/transactions/${id}`, {
+         method: "DELETE",
+         headers: {
+           "Authorization": `Bearer ${token}`
+         }
+      });
+      if (res.ok) {
+         setTransactions(prev => prev.filter(t => t._id !== id));
+      } else {
+         alert("Failed to delete record.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error.");
+    }
+  };
+
+  // Compute dynamic stats
+  const totalRevenue = transactions.filter(t => t.status === 'Paid').reduce((sum, rx) => sum + Number(rx.amount), 0);
+  const pendingFees = transactions.filter(t => t.status === 'Due' || t.status === 'Pending').reduce((sum, rx) => sum + Number(rx.amount), 0);
+  const totalScholarships = transactions.filter(t => t.category === 'Scholarship').length;
+  const totalDonations = transactions.filter(t => t.category === 'Donation' && t.status === 'Paid').reduce((sum, rx) => sum + Number(rx.amount), 0);
+
+  const accountStats = [
+    { label: "TOTAL REVENUE", value: `$${totalRevenue.toLocaleString()}`, count: "Overall Earned", up: true, icon: Landmark, color: "bg-white", text: "text-primary" },
+    { label: "PENDING FEES", value: `$${pendingFees.toLocaleString()}`, count: "Awaiting Action", up: false, icon: Clock, color: "bg-primary text-white", text: "text-white" },
+    { label: "SCHOLARSHIPS", value: totalScholarships.toString(), count: "Active Grants", up: true, icon: ShieldCheck, color: "bg-white", text: "text-primary" },
+    { label: "MONTHLY DONATIONS", value: `$${totalDonations.toLocaleString()}`, count: "External Assets", up: true, icon: Wallet, color: "bg-accent text-primary", text: "text-primary" },
   ];
 
   return (
@@ -46,8 +147,69 @@ export default function FeesAccountsPage() {
       sidebarItems={ADMIN_SIDEBAR_ITEMS}
       userProfile={{ name: "Admin Office", roleName: "Head Admin", avatar: "" }}
     >
-      <div className="space-y-12 animate-in fade-in duration-700">
+      <div className="space-y-12 animate-in fade-in duration-700 relative">
         
+        {/* RECORD PAYMENT MODAL */}
+        {showAddModal && (
+          <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-primary/20 backdrop-blur-sm">
+             <div className="bg-white rounded-4xl shadow-premium w-full max-w-lg p-10 relative overflow-hidden h-fit max-h-[95vh] overflow-y-auto">
+                <button onClick={() => setShowAddModal(false)} className="absolute top-6 right-6 p-2 bg-background rounded-full hover:bg-black/5 transition-colors">
+                  <X className="w-5 h-5 text-primary" />
+                </button>
+                <div className="mb-6">
+                  <h3 className="text-3xl font-serif font-bold text-primary">Record Payment</h3>
+                  <p className="text-sage text-sm font-bold uppercase tracking-widest mt-2">Log a new financial transaction</p>
+                </div>
+                <form onSubmit={handleRecordPayment} className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Payee Details / Student Name</label>
+                    <input type="text" required value={newTransaction.payeeName} onChange={e => setNewTransaction({...newTransaction, payeeName: e.target.value})} className="w-full h-12 px-6 bg-background rounded-xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors" placeholder="e.g. Mustafa Ahmed" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Transaction Amount ($)</label>
+                    <input type="number" step="0.01" required value={newTransaction.amount} onChange={e => setNewTransaction({...newTransaction, amount: e.target.value})} className="w-full h-12 px-6 bg-background rounded-xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors" placeholder="450.00" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Ledger Category</label>
+                       <select value={newTransaction.category} onChange={e => setNewTransaction({...newTransaction, category: e.target.value})} className="w-full h-12 px-6 bg-background rounded-xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors cursor-pointer appearance-none">
+                          <option value="Tuition Fee">Tuition Fee</option>
+                          <option value="Exam Fee">Exam Fee</option>
+                          <option value="Registration">Registration</option>
+                          <option value="Donation">Donation</option>
+                          <option value="Scholarship">Scholarship</option>
+                       </select>
+                     </div>
+                     <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Payment Method</label>
+                       <select value={newTransaction.method} onChange={e => setNewTransaction({...newTransaction, method: e.target.value})} className="w-full h-12 px-6 bg-background rounded-xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors cursor-pointer appearance-none">
+                          <option value="Online">Online Transfer</option>
+                          <option value="Cash">Cash Ledger</option>
+                          <option value="Bank">Bank Deposit</option>
+                          <option value="Check">Check / Draft</option>
+                       </select>
+                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-4">Transaction Status</label>
+                    <select value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})} className="w-full h-12 px-6 bg-background rounded-xl outline-none font-bold text-primary border border-border/50 focus:border-primary transition-colors cursor-pointer appearance-none">
+                        <option value="Paid">Processed (Paid)</option>
+                        <option value="Pending">Pending Clearance</option>
+                        <option value="Due">Invoice Sent (Due)</option>
+                    </select>
+                  </div>
+
+                  <button type="submit" disabled={modalLoading} className="w-full h-14 bg-primary text-white rounded-2xl font-bold shadow-soft hover:shadow-premium transition-all mt-4">
+                    {modalLoading ? "Processing Ledger..." : "Log Transaction to Ledger"}
+                  </button>
+                </form>
+             </div>
+          </div>
+        )}
+
         {/* Header Summary */}
         <div className="flex flex-col lg:flex-row justify-between items-end gap-10">
            <div className="space-y-4">
@@ -61,7 +223,7 @@ export default function FeesAccountsPage() {
                  <Download className="w-5 h-5" />
                  <span className="text-[11px] font-black uppercase tracking-widest leading-none">Financial Statements</span>
               </button>
-              <button className="flex items-center gap-3 bg-primary text-white px-10 py-5 rounded-full font-bold shadow-premium hover:shadow-pill transition-all active:scale-95 group">
+              <button onClick={() => setShowAddModal(true)} className="flex items-center gap-3 bg-primary text-white px-10 py-5 rounded-full font-bold shadow-premium hover:shadow-pill transition-all active:scale-95 group">
                  <Plus className="w-5 h-5 text-accent" />
                  <span className="text-[11px] font-black uppercase tracking-widest leading-none">Record Payment</span>
               </button>
@@ -84,10 +246,6 @@ export default function FeesAccountsPage() {
                   <p className={`text-6xl font-serif font-bold tracking-tight leading-none ${stat.text}`}>{stat.value}</p>
                   <p className={`text-[10px] font-black uppercase tracking-[0.3em] leading-none opacity-40 mt-4 ${stat.text}`}>{stat.label}</p>
                 </div>
-                <div className="pt-6 border-t border-black/5 flex items-center justify-between transition-all">
-                   <span className={`text-[10px] font-bold italic opacity-40 uppercase tracking-widest ${stat.text}`}>Audit History</span>
-                   <ChevronRight className={`w-4 h-4 opacity-20 group-hover:translate-x-2 ${stat.text}`} />
-                </div>
              </div>
            ))}
         </div>
@@ -101,7 +259,7 @@ export default function FeesAccountsPage() {
                  <Search className="w-5 h-5 text-sage/40" />
                  <input 
                    type="text" 
-                   placeholder="Search ledger by student name..." 
+                   placeholder="Search ledger by payee name..." 
                    className="flex-1 bg-transparent border-none outline-none pl-4 text-sm font-medium text-primary placeholder:text-sage/40" 
                  />
               </div>
@@ -141,26 +299,30 @@ export default function FeesAccountsPage() {
                     </tr>
                  </thead>
                  <tbody className="divide-y divide-background">
-                    {transactions.map((trx) => (
-                      <tr key={trx.id} className="group hover:bg-background/20 transition-all duration-300">
+                    {loading ? (
+                      <tr><td colSpan={6} className="text-center py-10 opacity-50 font-bold">Loading Ledger History...</td></tr>
+                    ) : transactions.length === 0 ? (
+                      <tr><td colSpan={6} className="text-center py-10 opacity-50 font-bold">No transactions recorded yet.</td></tr>
+                    ) : transactions.map((trx) => (
+                      <tr key={trx._id} className="group hover:bg-background/20 transition-all duration-300">
                         <td className="py-10 px-8">
                            <div className="flex items-center gap-6">
                               <div className="w-14 h-14 bg-primary/5 rounded-2xl flex items-center justify-center font-serif font-bold text-primary text-xl border border-primary/10 shadow-sm relative shrink-0">
                                  <CreditCard className="w-6 h-6 text-primary" />
                               </div>
                               <div>
-                                 <p className="text-lg font-serif font-bold text-primary group-hover:text-accent transition-colors leading-tight">{trx.student}</p>
+                                 <p className="text-lg font-serif font-bold text-primary group-hover:text-accent transition-colors leading-tight">{trx.payeeName}</p>
                                  <p className="text-[10px] font-black text-sage tracking-widest mt-1 uppercase opacity-60">Payment via {trx.method}</p>
                               </div>
                            </div>
                         </td>
                         <td className="py-10 px-8">
-                           <span className="text-xl font-serif font-black text-primary tracking-tight">{trx.amount}</span>
+                           <span className="text-xl font-serif font-black text-primary tracking-tight">${Number(trx.amount).toFixed(2)}</span>
                         </td>
                         <td className="py-10 px-8">
                            <span className="text-[10px] font-black uppercase tracking-widest px-5 py-2.5 bg-accent/20 text-primary border border-accent/20 rounded-full shadow-soft">{trx.category}</span>
                         </td>
-                        <td className="py-10 px-8 text-sm font-medium text-sage italic">{trx.date}</td>
+                        <td className="py-10 px-8 text-sm font-medium text-sage italic">{new Date(trx.createdAt).toLocaleDateString()}</td>
                         <td className="py-10 px-8">
                            <span className={`inline-flex items-center gap-3 text-[9px] font-black uppercase tracking-widest px-5 py-2.5 rounded-full border shadow-soft ${
                              trx.status === "Paid" ? "bg-green-50 text-green-600 border-green-100" :
@@ -172,11 +334,13 @@ export default function FeesAccountsPage() {
                         </td>
                         <td className="py-10 px-8">
                            <div className="flex items-center justify-end gap-4 shadow-soft">
-                              <button className="w-12 h-12 flex items-center justify-center bg-white border border-border/40 rounded-2xl hover:bg-primary hover:text-white transition-all shadow-sm group/btn" title="View Invoice">
-                                 <Eye className="w-4 h-4" />
-                              </button>
-                              <button className="w-12 h-12 flex items-center justify-center bg-white border border-border/40 rounded-2xl hover:bg-accent hover:text-primary transition-all shadow-sm group/btn" title="Generate Receipt">
-                                 <Download className="w-4 h-4" />
+                              {trx.status !== 'Paid' && (
+                                <button onClick={() => handleUpdateStatus(trx._id, 'Paid')} className="w-12 h-12 flex items-center justify-center bg-white border border-border/40 rounded-2xl hover:bg-green-500 hover:text-white transition-all shadow-sm group/btn" title="Mark as Paid">
+                                   <CheckCircle2 className="w-4 h-4" />
+                                </button>
+                              )}
+                              <button onClick={() => handleDelete(trx._id)} className="w-12 h-12 flex items-center justify-center bg-white border border-border/40 rounded-2xl hover:bg-red-500 hover:text-white transition-all shadow-sm group/btn" title="Delete Ledger Entry">
+                                 <Trash2 className="w-4 h-4" />
                               </button>
                            </div>
                         </td>
@@ -190,7 +354,7 @@ export default function FeesAccountsPage() {
            <div className="pt-12 border-t border-background flex justify-between items-center text-sage">
               <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest opacity-50">
                  <ShieldCheck className="w-4 h-4" />
-                 All transactions are SHA-256 encrypted and verified by the central treasury
+                 All transactions are secured and verified by the central treasury
               </div>
               <div className="flex items-center gap-4">
                  <button className="text-primary font-black text-[10px] uppercase tracking-widest border-b-2 border-primary/20 hover:border-primary transition-all pb-1">Download Ledger Archive</button>
@@ -203,5 +367,3 @@ export default function FeesAccountsPage() {
     </DashboardLayout>
   );
 }
-
-
