@@ -6,3 +6,6 @@ reportIncompatibleVariableOverride = "none"
 
 [tool.pytest.ini_options]
 pythonpath = [".", "apps"]
+
+[tool.vercel]
+entrypoint = "config.asgi:application"
