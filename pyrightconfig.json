@@ -1,0 +1,20 @@
+{
+  "include": [
+    "backend"
+  ],
+  "executionEnvironments": [
+    {
+      "root": "backend",
+      "extraPaths": [
+        ".",
+        "apps"
+      ]
+    }
+  ],
+  "extraPaths": [
+    "backend",
+    "backend/apps"
+  ],
+  "reportMissingTypeStubs": "none",
+  "reportIncompatibleVariableOverride": "none"
+}

@@ -1,0 +1,14 @@
+{
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/backend",
+    "${workspaceFolder}/backend/apps"
+  ],
+  "python.autoComplete.extraPaths": [
+    "${workspaceFolder}/backend",
+    "${workspaceFolder}/backend/apps"
+  ],
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportMissingTypeStubs": "none",
+    "reportIncompatibleVariableOverride": "none"
+  }
+}

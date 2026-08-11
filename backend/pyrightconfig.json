@@ -1,0 +1,11 @@
+{
+  "include": [
+    "."
+  ],
+  "extraPaths": [
+    ".",
+    "apps"
+  ],
+  "reportMissingTypeStubs": "none",
+  "reportIncompatibleVariableOverride": "none"
+}

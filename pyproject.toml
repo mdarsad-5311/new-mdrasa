@@ -1,0 +1,8 @@
+[tool.pyright]
+include = ["backend"]
+extraPaths = ["backend", "backend/apps"]
+reportMissingTypeStubs = "none"
+reportIncompatibleVariableOverride = "none"
+
+[tool.pytest.ini_options]
+pythonpath = ["backend", "backend/apps"]
