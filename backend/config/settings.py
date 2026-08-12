@@ -21,7 +21,7 @@ sys.path.insert(0, str(BASE_DIR / 'apps'))
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-madrasa-erp-key-2026')
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 't')
 
-ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0,.vercel.app').split(',') if host.strip()]
+ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0,.vercel.app,new-mdrasa.vercel.app').split(',') if host.strip()]
 
 # Application definition
 INSTALLED_APPS = [
